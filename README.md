@@ -18,19 +18,32 @@
 
 ## 1. 安装环境
 
-在项目目录打开 PowerShell。推荐 Python 3.12 或 3.13（本机已有），脚本语法兼容 Python 3.8+。
+将项目下载或解压到任意可写目录，在包含 `README.md` 的文件夹中打开 PowerShell。推荐安装 Python 3.12 或 3.13，并安装 Python Launcher 或将 Python 加入 PATH。脚本语法兼容 Python 3.8+。
+
+运行安装脚本，自动创建当前项目的虚拟环境、安装依赖，并在首次安装时生成 `.env`：
 
 ```powershell
-Set-Location 'F:\邮箱小脚本'
-py -3.13 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-Copy-Item .env.example .env
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1
 notepad .env
 ```
 
-如果已由助手创建 `.venv` 和 `.env`，直接编辑 `.env`，不要重复覆盖现有配置。
+安装脚本会从自身所在目录定位文件，支持中文和空格路径，不依赖盘符、用户名或 PowerShell 当前工作目录。重复运行会保留已有 `.env`，不会替你登录邮箱或注册定时任务。每位使用者需要填写自己的邮箱、Microsoft 应用 ID 和可选 AI 密钥。
 
-`requirements-lock.txt` 记录了本次 Windows / Python 3.13 验证通过的依赖版本；同环境重建时可用 `pip install -r requirements-lock.txt`。其他 Python 版本优先使用 `requirements.txt` 选择兼容版本。
+如果没有 Python Launcher，可直接使用加入 PATH 的 `python`；也可以指定 Python 可执行文件：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1 -PythonExecutable python
+```
+
+不使用安装脚本时，可以在项目目录手动安装：
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+if (-not (Test-Path -LiteralPath .env)) { Copy-Item -LiteralPath .env.example -Destination .env }
+```
+
+`requirements-lock.txt` 记录了 Windows / Python 3.13 验证通过的依赖版本；同环境重建时可用 `pip install -r requirements-lock.txt`。其他 Python 版本优先使用 `requirements.txt` 选择兼容版本。
 
 ## 2. 注册 Microsoft 只读应用（一次性）
 
@@ -137,7 +150,19 @@ TELEGRAM_CHAT_ID=
 
 先在 Telegram 中给该 bot 发消息启用会话，再执行 `test-notify`。机器需能访问 `api.telegram.org`。不会代你创建 bot 或向他人发消息。Telegram 收到的摘要同样属于向外部服务传输邮件信息。不需要桌面提醒时设置 `DESKTOP_NOTIFY=false`。
 
-如果希望在电脑关机时也收到手机提醒，需要把程序运行在持续开机的 Windows 设备上，或另行部署服务器并配置该平台的加密缓存和定时任务；当前安装器针对这台 Windows 电脑。
+如果希望在电脑关机时也收到手机提醒，需要把程序运行在持续开机的 Windows 设备上，或另行部署服务器并配置该平台的加密缓存和定时任务；当前安装器面向 Windows。
+
+## 分发给其他人
+
+在项目目录运行：
+
+```powershell
+.\.venv\Scripts\python.exe build_release.py
+```
+
+生成的 `dist/hotmail-hr-digest.zip` 可以发给其他人。打包器只收录指定的源代码、安装脚本、配置模板、文档和测试，不包含 `.env`、`data`、登录缓存、虚拟环境或 Git 历史。
+
+接收方解压到自己选择的目录，安装 Python，执行 `setup.ps1`，填写自己的 `.env`，按上述步骤完成 Microsoft 授权并安装定时任务。不要直接把正在使用的整个项目文件夹压缩发送，也不要复制 `.venv`；虚拟环境和 Windows 加密登录缓存不能在不同电脑之间直接复用。移动已安装的项目时，应在新位置重建虚拟环境并重新安装定时任务。
 
 ## 文件、排障和边界
 
