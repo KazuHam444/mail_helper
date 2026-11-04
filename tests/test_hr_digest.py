@@ -1,3 +1,4 @@
+import email
 import json
 import os
 from pathlib import Path
@@ -12,7 +13,7 @@ import hr_digest as app
 def mail(subject="面试邀请", body="感谢应聘，请确认明天面试时间。", mid="m1"):
     return dict(id=mid, subject=subject, body=body, sender="hr@company.example",
                 sender_name="HR", received="2026-11-03T08:00:00Z",
-                url="https://outlook.live.com/mail/0/inbox/id/test")
+                url="https://mail.qq.com/")
 
 
 class RulesTests(unittest.TestCase):
@@ -26,8 +27,14 @@ class RulesTests(unittest.TestCase):
                               ("请完成候选人信息表填写", "感谢投递，请填写候选人登记表。"),
                               ("请完成候选人信息表", "请按要求提交信息。"),
                               ("Interview rescheduled", "Please confirm your interview."),
-                              ("请补充应聘材料", "请提交您的作品和简历。")]:
-            self.assertTrue(app.rules(mail(subject, body))[0]["notify"], subject)
+                              ("请补充应聘材料", "请提交您的作品和简历。"),
+                              ("Next stage - video submission",
+                               "We are pleased to proceed with your application to the next stage. "
+                               "Please record a 5-minute video and submit your video within 48 hours. "
+                               "The link will be closed by Wednesday October 28, 11:59pm HKT. Internship Program.")]:
+            decision, candidate = app.rules(mail(subject, body))
+            self.assertTrue(candidate, subject)
+            self.assertTrue(decision["notify"], subject)
 
     def test_ads_and_receipts_and_rejection(self):
         for subject, body in [("为你推荐高薪职位", "请参加面试课程"),
@@ -35,7 +42,23 @@ class RulesTests(unittest.TestCase):
                               ("Interview tips newsletter", "Interview invitation examples"),
                               ("申请进展", "很遗憾我们无法继续此次申请。"),
                               ("订单发货通知", "请填写收货信息")]:
-            self.assertFalse(app.rules(mail(subject, body))[0]["notify"], subject)
+            m = mail(subject, body)
+            m["sender"] = "noreply@jobboard.example"
+            m["sender_name"] = "Job Board"
+            self.assertFalse(app.rules(m)[0]["notify"], subject)
+
+    def test_any_hr_sender_notifies_including_receipt_and_reject(self):
+        for subject, body in [
+            ("Application received", "Thank you for applying. We have received your application."),
+            ("Update", "We regret to inform you that your application was unsuccessful."),
+            ("Quick note", "Just checking in regarding your application status."),
+        ]:
+            m = mail(subject, body)
+            m["sender"] = "HKCareers@polymercapital.com"
+            m["sender_name"] = "HK Careers"
+            decision, candidate = app.rules(m)
+            self.assertTrue(candidate, subject)
+            self.assertTrue(decision["notify"], subject)
 
     def test_obvious_fee_scam(self):
         self.assertFalse(app.rules(mail("面试邀请", "面试前请支付保证金。"))[0]["notify"])
@@ -54,9 +77,9 @@ class RulesTests(unittest.TestCase):
             self.assertTrue(decision["notify"])
             self.assertFalse(final)
 
-    def test_non_outlook_url_not_forwarded(self):
+    def test_non_qq_url_not_forwarded(self):
         m = mail()
-        m["url"] = "https://outlook.live.com.attacker.example/"
+        m["url"] = "https://mail.qq.com.attacker.example/"
         self.assertNotIn("attacker", app.item_text(m, app.result(True)))
 
 
@@ -111,34 +134,83 @@ class StateTests(unittest.TestCase):
             self.assertIn("1 封", report)
             self.assertEqual(self.state.db.execute("SELECT count(*) FROM outbox").fetchone()[0], 1)
 
+    def test_catchup_yesterday_after_1230_once(self):
+        with patch.dict(os.environ, {"CATCHUP_DIGEST_TIME": "12:30"}), patch.object(app, "channels", return_value=["desktop"]):
+            yesterday = mail(mid="y1")
+            yesterday["received"] = "2026-11-03T08:00:00Z"
+            self.state.save(yesterday, app.result(True, "面试", "确认时间"))
+            before = datetime(2026, 11, 4, 4, 0, tzinfo=timezone.utc)  # 北京 12:00
+            app.make_catchup(self.state, before)
+            self.assertEqual(self.state.db.execute("SELECT count(*) FROM outbox").fetchone()[0], 0)
+            after = datetime(2026, 11, 4, 4, 40, tzinfo=timezone.utc)  # 北京 12:40
+            app.make_catchup(self.state, after)
+            app.make_catchup(self.state, after)
+            rows = self.state.db.execute("SELECT key,title,body FROM outbox").fetchall()
+            self.assertEqual(len(rows), 1)
+            self.assertIn("catchup:2026-11-03", rows[0][0])
+            self.assertEqual(rows[0][1], "猪猪猪猪！！！")
+            self.assertIn("昨日招聘摘要", rows[0][2])
+
+    def test_digest_email_enqueued_once_without_chunk_split(self):
+        with patch.dict(os.environ, {"EMAIL_TO": "a@qq.com,b@example.com", "DESKTOP_NOTIFY": "false",
+                                     "TELEGRAM_BOT_TOKEN": "", "TELEGRAM_CHAT_ID": ""}):
+            long_body = "摘要内容" * 1000
+            app.enqueue_text(self.state, "digest:2026-11-04", "猪猪猪猪！！！", long_body, app.channels("digest"))
+            rows = self.state.db.execute("SELECT key,channel,body FROM outbox").fetchall()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0][1], "email")
+            self.assertEqual(len(rows[0][2]), len(long_body))
+            self.assertEqual(app.email_recipients(), ["a@qq.com", "b@example.com"])
+            self.assertNotIn("email", app.channels("alert"))
+
     def test_mid_scan_failure_does_not_advance_watermark(self):
         def broken(*args):
             yield mail()
             raise RuntimeError("page 2 failed")
-        with patch.object(app, "token", return_value="fake"), patch.object(app, "fetch_messages", broken), patch.object(app, "channels", return_value=[]):
+        with patch.object(app, "fetch_messages", broken), patch.object(app, "channels", return_value=[]):
             with self.assertRaises(RuntimeError):
                 app.run(self.state)
         self.assertIsNone(self.state.get("watermark"))
         self.assertTrue(self.state.seen("m1"))
 
 
-class GraphTests(unittest.TestCase):
-    def test_pagination_without_reapplying_params(self):
-        raw = {"id": "id1", "receivedDateTime": "2026-11-03T00:00:00Z", "body": {"content": "text"}}
-        pages = [{"value": [raw], "@odata.nextLink": app.GRAPH + "/next"}, {"value": []}]
-        with patch.dict(os.environ, {"MAIL_FOLDERS": "inbox"}), patch.object(app, "graph_get", side_effect=pages) as get:
-            self.assertEqual(len(list(app.fetch_messages("fake", "start", "end"))), 1)
-            self.assertIsNone(get.call_args_list[1].args[2])
+class ImapTests(unittest.TestCase):
+    def test_stable_id_prefers_message_id(self):
+        msg = email.message_from_string("Message-ID: <abc@example.com>\nSubject: hi\n\nbody")
+        first = app.stable_mail_id("INBOX", "1", msg, "2026-11-03T00:00:00Z")
+        second = app.stable_mail_id("INBOX", "99", msg, "2026-11-04T00:00:00Z")
+        self.assertEqual(first, second)
+        self.assertTrue(first.startswith("mid:"))
 
-    def test_no_token_to_other_hosts(self):
-        with self.assertRaises(RuntimeError):
-            app.graph_get("https://graph.microsoft.com.evil.example/messages", "secret")
+    def test_forwarded_sender_restored_from_body(self):
+        body = "---------- Forwarded message ----------\nFrom: HR Team <hr@company.example>\n\n请确认明天面试。"
+        msg = email.message_from_string(
+            "From: me@hotmail.com\nSubject: FW: 面试邀请\n\n" + body)
+        with patch.dict(os.environ, {"QQ_EMAIL": "me@qq.com", "FORWARD_SENDERS": "hotmail.com"}):
+            addr, name = app.resolve_sender(msg, body)
+        self.assertEqual(addr, "hr@company.example")
+        self.assertIn("HR", name)
+
+    def test_html_body_extracted(self):
+        raw = (
+            "From: hr@x.com\r\nSubject: test\r\nMIME-Version: 1.0\r\n"
+            "Content-Type: text/html; charset=utf-8\r\n"
+            "Content-Transfer-Encoding: 8bit\r\n\r\n"
+            "<p>请确认面试时间</p>"
+        ).encode("utf-8")
+        msg = email.message_from_bytes(raw)
+        self.assertIn("请确认面试时间", app.extract_body(msg))
+
+    def test_imap_settings_require_auth_code(self):
+        with patch.dict(os.environ, {"QQ_EMAIL": "a@qq.com", "QQ_AUTH_CODE": ""}, clear=False):
+            with self.assertRaises(RuntimeError):
+                app.imap_settings()
 
 
 class AITests(unittest.TestCase):
     def setUp(self):
         self.env = patch.dict(os.environ, {"AI_BASE_URL": "https://ai.example/v1", "AI_API_KEY": "test-key",
-                                          "AI_MODEL": "test-model", "AI_MIN_CONFIDENCE": "0.8"})
+                                          "AI_MODEL": "test-model", "AI_REJECT_CONFIDENCE": "0.85"})
         self.env.start()
         self.addCleanup(self.env.stop)
 
@@ -151,10 +223,14 @@ class AITests(unittest.TestCase):
             self.assertFalse(post.call_args.kwargs["allow_redirects"])
             return decision
 
-    def test_valid_action_and_low_confidence(self):
-        data = dict(notify=True, confidence=0.95, category="面试", summary="请确认面试时间", deadline="")
+    def test_valid_action_and_uncertain_reject_still_notifies(self):
+        data = dict(notify=True, confidence=0.4, category="面试", summary="请确认面试时间", deadline="")
         self.assertTrue(self.call(data)["notify"])
-        data["confidence"] = 0.5
+        # AI 否定但把握不足 -> 仍提醒（宁可错报）
+        data = dict(notify=False, confidence=0.5, category="ignore", summary="", deadline="")
+        self.assertTrue(self.call(data)["notify"])
+        # AI 明确否定 -> 静默
+        data = dict(notify=False, confidence=0.95, category="ignore", summary="", deadline="")
         self.assertFalse(self.call(data)["notify"])
 
     def test_invalid_boolean_rejected(self):

@@ -32,4 +32,4 @@ if (-not (Test-Path -LiteralPath $config)) {
 } else {
     Write-Host 'Existing .env preserved.'
 }
-Write-Host 'Setup complete. Configure your own .env, then follow README.md for Microsoft login and scheduling.'
+Write-Host 'Setup complete. Configure QQ_EMAIL / QQ_AUTH_CODE in .env, then follow README.md for IMAP login and scheduling.'

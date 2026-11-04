@@ -1,12 +1,13 @@
 param(
     [int]$IntervalMinutes = 15,
-    [string]$TaskName = "Hotmail-HR-Digest",
+    [string]$TaskName = "Mail-HR-Digest",
     [switch]$Remove
 )
 $ErrorActionPreference = 'Stop'
 if ($Remove) {
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
-    Write-Host 'Scheduled task removed. Local data and login are preserved.'
+    Unregister-ScheduledTask -TaskName 'Hotmail-HR-Digest' -Confirm:$false -ErrorAction SilentlyContinue
+    Write-Host 'Scheduled task removed. Local data is preserved.'
     exit 0
 }
 if ($IntervalMinutes -lt 5 -or $IntervalMinutes -gt 1440) {
@@ -25,7 +26,8 @@ $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -Repetiti
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 14) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 $principal = New-ScheduledTaskPrincipal -UserId $identity -LogonType Interactive -RunLevel Limited
-$task = New-ScheduledTask -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'Read-only Outlook HR notifications and daily digest; requires logged-in Windows user.'
+$task = New-ScheduledTask -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'Read-only QQ mailbox HR notifications and daily digest; requires logged-in Windows user.'
+Unregister-ScheduledTask -TaskName 'Hotmail-HR-Digest' -Confirm:$false -ErrorAction SilentlyContinue
 Register-ScheduledTask -TaskName $TaskName -InputObject $task -Force | Out-Null
 Write-Host "Installed $TaskName, every $IntervalMinutes minutes while this Windows user is logged in."
 Write-Host 'Daily digest defaults to 20:00 China time. See data/app.log and data/reports.'

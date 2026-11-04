@@ -17,11 +17,11 @@ def build_release(root=ROOT):
     for source in sources:
         if source.is_symlink() or not source.is_file() or root not in source.resolve().parents:
             raise ValueError('Missing or unsafe release source: ' + source.name)
-    target = root / 'dist' / 'hotmail-hr-digest.zip'
+    target = root / 'dist' / 'mail-hr-digest.zip'
     target.parent.mkdir(exist_ok=True)
     with zipfile.ZipFile(str(target), 'w', compression=zipfile.ZIP_DEFLATED) as archive:
         for source in sources:
-            archive.write(str(source), 'hotmail-hr-digest/' + source.relative_to(root).as_posix())
+            archive.write(str(source), 'mail-hr-digest/' + source.relative_to(root).as_posix())
     return target
 
 
