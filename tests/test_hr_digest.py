@@ -1,4 +1,5 @@
 import email
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -62,6 +63,14 @@ class RulesTests(unittest.TestCase):
 
     def test_obvious_fee_scam(self):
         self.assertFalse(app.rules(mail("面试邀请", "面试前请支付保证金。"))[0]["notify"])
+
+    def test_student_card_nol_request_from_named_person(self):
+        m = mail("Re: Internship", "Dear Zijun, thanks and may you please send me your student card, NOL? "
+                 "Also, if there is an opportunity to take up the internship, do you need to defer your graduation?")
+        m.update(sender="alice@company.example", sender_name="Alice")
+        decision, candidate = app.rules(m)
+        self.assertTrue(candidate)
+        self.assertTrue(decision["notify"])
 
     def test_domain_matching_not_substring(self):
         self.assertTrue(app.sender_matches("hr@company.com", ["company.com"]))
@@ -173,8 +182,60 @@ class StateTests(unittest.TestCase):
         self.assertIsNone(self.state.get("watermark"))
         self.assertTrue(self.state.seen("m1"))
 
+    def test_match_delivered_before_later_scan_failure(self):
+        def broken(*args):
+            yield mail()
+            self.assertEqual(self.state.db.execute("SELECT sent FROM outbox").fetchone()[0], 1)
+            raise RuntimeError("later fetch failed")
+        with patch.object(app, "fetch_messages", broken), patch.object(app, "classify", return_value=(app.result(True), True)), patch.object(app, "channels", return_value=["desktop"]), patch.object(app, "desktop") as desk, patch.object(app, "append_notify_log"):
+            with self.assertRaises(RuntimeError):
+                app.run(self.state)
+            desk.assert_called_once()
+
+    def test_pending_delivered_even_when_mailbox_unavailable(self):
+        self.state.enqueue("pending", "test", "body", ["desktop"])
+        with patch.object(app, "fetch_messages", side_effect=RuntimeError("offline")), patch.object(app, "channels", return_value=["desktop"]), patch.object(app, "desktop") as desk:
+            with self.assertRaises(RuntimeError):
+                app.run(self.state)
+            desk.assert_called_once()
+            self.assertEqual(self.state.db.execute("SELECT sent FROM outbox").fetchone()[0], 1)
+
 
 class ImapTests(unittest.TestCase):
+    def test_delayed_mail_uses_internal_arrival_not_old_date(self):
+        client = Mock()
+        client.select.return_value = ("OK", [b"1"])
+        raw = b"From: hr@example.com\r\nDate: Sun, 1 Nov 2026 10:00:00 +0000\r\nMessage-ID: <delayed>\r\nSubject: Interview\r\n\r\nPlease confirm."
+        client.uid.side_effect = [("OK", [b"123"]), ("OK", [(b'1 (UID 123 INTERNALDATE "04-Nov-2026 16:00:00 +0800" BODY[] {100}', raw), b')'])]
+        with patch.object(app, "imap_connection", return_value=contextlib.nullcontext(client)), patch.dict(os.environ, {"MAIL_FOLDERS": "INBOX"}):
+            messages = list(app.fetch_messages("2026-11-04T07:00:00Z", "2026-11-04T09:00:00Z"))
+        self.assertEqual(len(messages), 1)
+        self.assertEqual(messages[0]["received"], "2026-11-04T08:00:00Z")
+        self.assertEqual(client.uid.call_args_list[0].args[0], "search")
+        self.assertEqual(client.uid.call_args_list[1].args[:2], ("fetch", b"123"))
+
+
+class DesktopTests(unittest.TestCase):
+    def test_missing_notification_history_signal_is_failure(self):
+        with patch.dict(os.environ, {"DESKTOP_STYLE": "window"}), patch.object(app.subprocess, "run", return_value=Mock(returncode=0, stdout=b"")):
+            with self.assertRaises(RuntimeError):
+                app.desktop("test", "body")
+
+    def test_notification_history_signal_is_accepted(self):
+        with patch.dict(os.environ, {"DESKTOP_STYLE": "window"}), patch.object(app.subprocess, "run", return_value=Mock(returncode=0, stdout=b"HR_TOAST_IN_HISTORY\r\n")):
+            app.desktop("test", "body")
+
+    def test_old_window_setting_cannot_create_foreground_window(self):
+        with patch.dict(os.environ, {"DESKTOP_STYLE": "window", "DESKTOP_BANNER": "false"}), patch.object(app.subprocess, "run", return_value=Mock(returncode=0, stdout=b"HR_TOAST_IN_HISTORY")) as run:
+            app.desktop("test", "body")
+            script = run.call_args.args[0][-1]
+            self.assertNotIn("ShowDialog", script)
+            self.assertNotIn("TopMost", script)
+            self.assertIn("SuppressPopup", script)
+            self.assertEqual(run.call_args.kwargs["env"]["HR_NOTIFY_BANNER"], "false")
+
+
+class MoreImapTests(unittest.TestCase):
     def test_stable_id_prefers_message_id(self):
         msg = email.message_from_string("Message-ID: <abc@example.com>\nSubject: hi\n\nbody")
         first = app.stable_mail_id("INBOX", "1", msg, "2026-11-03T00:00:00Z")

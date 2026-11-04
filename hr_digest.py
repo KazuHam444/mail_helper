@@ -326,8 +326,8 @@ def imap_search_uids(client, since_dt, until_dt):
     # QQ 邮箱要求把关键字和日期作为独立参数传递；整串 criteria 会被误匹配成接近 ALL。
     since_day = since_dt.astimezone(timezone.utc).date()
     until_day = (until_dt.astimezone(timezone.utc) + timedelta(days=1)).date()
-    typ, data = client.search(
-        None,
+    typ, data = client.uid(
+        "search", None,
         "SINCE", since_day.strftime("%d-%b-%Y"),
         "BEFORE", until_day.strftime("%d-%b-%Y"),
     )
@@ -347,13 +347,20 @@ def fetch_messages(since, until):
             if typ != "OK":
                 raise RuntimeError("无法打开邮箱文件夹：%s" % folder)
             for uid in imap_search_uids(client, since_dt, until_dt):
-                typ, data = client.fetch(uid, "(BODY.PEEK[])")
+                typ, data = client.uid("fetch", uid, "(INTERNALDATE BODY.PEEK[])")
                 if typ != "OK" or not data or data[0] is None:
                     raise RuntimeError("IMAP 读取邮件失败。")
-                raw_bytes = data[0][1]
+                literal = next((part for part in data if isinstance(part, tuple) and len(part) == 2), None)
+                if literal is None:
+                    raise RuntimeError("IMAP 响应缺少邮件正文。")
+                raw_bytes = literal[1]
                 msg = email.message_from_bytes(raw_bytes)
                 body = clean(extract_body(msg), 12000)
-                received_dt = message_received(msg, until_dt)
+                internal = imaplib.Internaldate2tuple(literal[0])
+                if internal is None:
+                    raise RuntimeError("IMAP 响应缺少收件时间，保留检查进度待重试。")
+                # 与 SINCE 的服务器入箱时间一致；不能拿发件人 Date 丢弃延迟/转发邮件。
+                received_dt = datetime.fromtimestamp(time.mktime(internal), timezone.utc)
                 if received_dt < since_dt or received_dt > until_dt:
                     continue
                 received = iso(received_dt)
@@ -396,7 +403,8 @@ ACTION = re.compile(
     r"video\s*(interview|submission|response|recording|assessment)?|"
     r"record\s+(a\s+)?\d*-?\s*minute\s+video|record\s+a\s+video|one[- ]way\s+interview|hirevue|"
     r"submit\s+your\s+(video|recording|application|form|assessment|response|documents?)|"
-    r"please\s+(submit|complete|confirm|reply|respond|provide|upload|join|attend)|"
+    r"please\s+(submit|complete|confirm|reply|respond|provide|upload|join|attend|send)|"
+    r"send.{0,40}(student\s*card|documents?|\bNOL\b)|defer.{0,25}graduation|"
     r"kindly\s+(request|submit|ask|complete|confirm|provide)|"
     r"we\s+(request|ask|invite)\s+you|you\s+are\s+(invited|required|asked)|"
     r"next\s+stage|next\s+step|further\s+process|screening(\s+process)?|"
@@ -642,25 +650,45 @@ def item_text(mail, decision):
 def desktop(title, body):
     if os.name != "nt":
         raise RuntimeError("桌面提醒仅支持 Windows，请配置 Telegram 或关闭 DESKTOP_NOTIFY。")
-    # 通过环境变量传值，邮件内容永远不会作为 PowerShell 代码执行。
-    script = """Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-$n = New-Object System.Windows.Forms.NotifyIcon
-$n.Icon = [System.Drawing.SystemIcons]::Information
-$n.Visible = $true
-$n.BalloonTipTitle = $env:HR_NOTIFY_TITLE
-$n.BalloonTipText = $env:HR_NOTIFY_BODY
-$n.ShowBalloonTip(10000)
-Start-Sleep -Seconds 11
-$n.Dispose()
+    # 原生 Toast 不创建应用窗口、不激活前台；正文通过环境变量传入。
+    # 旧版本的 window/balloon 配置统一迁移为 Toast，避免继续弹置顶窗口。
+    script = r"""$ErrorActionPreference = 'Stop'
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
+[Windows.UI.Notifications.ToastNotification, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
+[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null
+$appId = 'Mail.HR.Digest'
+$key = 'HKCU:\Software\Classes\AppUserModelId\' + $appId
+[void](New-Item -Path $key -Force)
+[void](New-ItemProperty -Path $key -Name DisplayName -Value 'HR Mail Reminder' -PropertyType String -Force)
+$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+$xml.LoadXml('<toast duration="short"><visual><binding template="ToastGeneric"><text></text><text></text></binding></visual><audio silent="true"/></toast>')
+$nodes = $xml.GetElementsByTagName('text')
+$nodes.Item(0).AppendChild($xml.CreateTextNode($env:HR_NOTIFY_TITLE)) > $null
+$nodes.Item(1).AppendChild($xml.CreateTextNode($env:HR_NOTIFY_BODY)) > $null
+$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
+$toast.Tag = [Guid]::NewGuid().ToString('N').Substring(0,16)
+$toast.Group = 'hr-mail'
+$toast.ExpirationTime = [DateTimeOffset]::Now.AddDays(7)
+$toast.SuppressPopup = ($env:HR_NOTIFY_BANNER -eq 'false')
+$notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId)
+$notifier.Show($toast)
+# 不清除历史：横幅消失后，仍可在通知中心查阅（直到被清理或到期）。
+$found = $null
+for ($i = 0; $i -lt 15 -and -not $found; $i++) {
+    Start-Sleep -Milliseconds 200
+    $found = [Windows.UI.Notifications.ToastNotificationManager]::History.GetHistory($appId) | Where-Object { $_.Tag -eq $toast.Tag }
+}
+if (-not $found) { throw 'Notification was not found in notification center.' }
+[Console]::WriteLine('HR_TOAST_IN_HISTORY')
 """
     env = os.environ.copy()
-    env.update(HR_NOTIFY_TITLE=title[:60], HR_NOTIFY_BODY=body[:240] + "\n完整摘要见 data/reports")
-    completed = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
-        env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    env.update(HR_NOTIFY_TITLE=title[:100], HR_NOTIFY_BODY=body[:3000] + "\n完整摘要见 data/reports",
+               HR_NOTIFY_BANNER="true" if flag("DESKTOP_BANNER", True) else "false")
+    completed = subprocess.run(["powershell.exe", "-STA", "-NoProfile", "-NonInteractive", "-Command", script],
+        env=env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), timeout=25)
-    if completed.returncode:
-        raise RuntimeError("Windows 桌面提醒调用失败")
+    if completed.returncode or b"HR_TOAST_IN_HISTORY" not in (completed.stdout or b""):
+        raise RuntimeError("Windows 通知未进入通知中心，请检查系统通知权限与 HR Mail Reminder 的通知设置。")
 
 
 def telegram(body):
@@ -724,6 +752,7 @@ def deliver(state):
                 raise RuntimeError("未知提醒渠道")
             state.db.execute("UPDATE outbox SET sent=1 WHERE key=?", (key,))
             state.commit()
+            LOG.info("通知渠道已完成调用：%s；key=%s（不代表用户已阅读）", channel, key)
         except Exception as exc:
             failed = True
             LOG.error("%s 提醒失败 (%s)，已保留待发送记录。", channel, type(exc).__name__)
@@ -779,6 +808,8 @@ def make_catchup(state, stamp):
 
 
 def run(state):
+    # 收信失败不能阻止重试上次积压的提醒。
+    success = deliver(state)
     stamp = now()
     watermark = state.get("watermark")
     since = datetime.fromisoformat(watermark.replace("Z", "+00:00")) - timedelta(minutes=30) if watermark else stamp - timedelta(days=int(os.getenv("INITIAL_LOOKBACK_DAYS", "7")))
@@ -803,9 +834,12 @@ def run(state):
             alert_body = "有招聘消息啦！！！\n快看！！！\n\n" + item_text(mail, decision)
             enqueue_text(state, "mail:" + mail["id"], "猪猪猪猪！！！", alert_body, channels("alert"))
             append_notify_log(mail, decision)
-            LOG.info("已提醒并记入日志：%s | %s", mail.get("sender", ""), clean(mail.get("subject", ""), 80))
+            LOG.info("已识别招聘通知并入队；即时渠道：%s", ",".join(channels("alert")) or "无")
             matched += 1
         state.commit()
+        if decision["notify"]:
+            # 先通知这封，再读取/分类下一封；后续 IMAP/AI 异常不会压住它。
+            success = deliver(state) and success
         count += 1
     if not retry_classification:
         state.set("watermark", iso(stamp))
@@ -813,7 +847,7 @@ def run(state):
     state.commit()
     make_digest(state, stamp)
     make_catchup(state, stamp)
-    success = deliver(state)
+    success = deliver(state) and success
     state.set("last_success", iso(now()))
     state.commit()
     LOG.info("检查完成：处理 %s 封，命中 %s 封。", count, matched)
@@ -838,7 +872,7 @@ def main():
     from dotenv import load_dotenv
     load_dotenv(ROOT / ".env")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["login", "run", "digest", "demo", "status", "test-notify", "check-ai"])
+    parser.add_argument("command", choices=["login", "run", "rescan", "digest", "demo", "status", "test-notify", "check-ai"])
     args = parser.parse_args()
     DATA.mkdir(exist_ok=True)
     from logging.handlers import RotatingFileHandler
@@ -857,6 +891,8 @@ def main():
             elif args.command == "status":
                 print("最近检查成功：", state.get("last_success", "尚未运行"))
                 print("待发送通知：", state.db.execute("SELECT count(*) FROM outbox WHERE sent=0").fetchone()[0])
+                print("桌面提醒：", "已启用" if flag("DESKTOP_NOTIFY", True) else "已关闭")
+                print("桌面样式：", "toast（系统通知中心）")
                 print("AI：", "已启用" if ai_enabled() else "未启用（本地规则）")
                 configured = bool(os.getenv("QQ_EMAIL", "").strip() and os.getenv("QQ_AUTH_CODE", "").strip())
                 print("QQ 邮箱：", "已配置" if configured else "未配置")
@@ -880,6 +916,13 @@ def main():
                 make_catchup(state, now())
                 return 0 if deliver(state) else 1
             else:
+                if args.command == "rescan":
+                    # 规则升级后重查回看窗口内曾忽略的邮件，保留已发送通知的去重记录。
+                    for mid, decision in state.db.execute("SELECT id,decision FROM messages").fetchall():
+                        if not json.loads(decision).get("notify"):
+                            state.db.execute("UPDATE messages SET final=0 WHERE id=?", (mid,))
+                    state.db.execute("DELETE FROM meta WHERE key IN ('watermark','retry_floor')")
+                    state.commit()
                 return 0 if run(state) else 1
         return 0
     except Exception as exc:
