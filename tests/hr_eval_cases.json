@@ -1,0 +1,602 @@
+[
+  {
+    "id": "p00",
+    "split": "development",
+    "expected": true,
+    "subject": "面试邀请",
+    "body": "您好，您应聘的分析师岗位已通过筛选，请确认周五参加面试。",
+    "sender": "recruitment@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p01",
+    "split": "development",
+    "expected": true,
+    "subject": "Interview invitation",
+    "body": "Your application was shortlisted. Please confirm your interview on Friday.",
+    "sender": "alice@company.example",
+    "sender_name": "Alice",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p02",
+    "split": "holdout",
+    "expected": true,
+    "subject": "Online assessment",
+    "body": "Thank you for applying. Complete your online assessment within 48 hours.",
+    "sender": "recruitment@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p03",
+    "split": "development",
+    "expected": true,
+    "subject": "请完成候选人登记表",
+    "body": "感谢应聘，请填写候选人信息表并于明日提交。",
+    "sender": "alice@company.example",
+    "sender_name": "Alice",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p04",
+    "split": "development",
+    "expected": true,
+    "subject": "Re: Internship",
+    "body": "Please send your student card and NOL. Do you need to defer your graduation for the internship?",
+    "sender": "recruitment@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p05",
+    "split": "holdout",
+    "expected": true,
+    "subject": "Availability request",
+    "body": "Regarding your application, could you share your availability for a call with the hiring manager?",
+    "sender": "alice@company.example",
+    "sender_name": "Alice",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p06",
+    "split": "development",
+    "expected": true,
+    "subject": "Interview rescheduled",
+    "body": "Your interview has been rescheduled to Tuesday. Please reply to confirm.",
+    "sender": "recruitment@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p07",
+    "split": "development",
+    "expected": true,
+    "subject": "笔试通知",
+    "body": "您的简历已通过，请完成附件中的笔试并回复确认收到。",
+    "sender": "alice@company.example",
+    "sender_name": "Alice",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p08",
+    "split": "holdout",
+    "expected": true,
+    "subject": "Video submission",
+    "body": "Your internship application is progressing. Please record a five-minute video within 48 hours.",
+    "sender": "recruitment@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p09",
+    "split": "development",
+    "expected": true,
+    "subject": "Offer letter",
+    "body": "We are offering you the graduate analyst position. Please sign and return your offer letter.",
+    "sender": "alice@company.example",
+    "sender_name": "Alice",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p10",
+    "split": "development",
+    "expected": true,
+    "subject": "背景调查授权",
+    "body": "针对您应聘的岗位，请填写背调授权表并签字。",
+    "sender": "recruitment@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p11",
+    "split": "holdout",
+    "expected": true,
+    "subject": "补充应聘材料",
+    "body": "请补充您的成绩单、在读证明和实习可用时间。",
+    "sender": "alice@company.example",
+    "sender_name": "Alice",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p12",
+    "split": "development",
+    "expected": true,
+    "subject": "HireVue invitation",
+    "body": "Your application has progressed. Please complete your HireVue video interview.",
+    "sender": "recruitment@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p13",
+    "split": "development",
+    "expected": true,
+    "subject": "确认入职时间",
+    "body": "请回复确认您的入职日期和实习时长。",
+    "sender": "alice@company.example",
+    "sender_name": "Alice",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p14",
+    "split": "holdout",
+    "expected": true,
+    "subject": "Assessment centre invitation",
+    "body": "You are invited to an assessment centre for your graduate application. Please RSVP.",
+    "sender": "recruitment@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p15",
+    "split": "development",
+    "expected": true,
+    "subject": "Re: Documents",
+    "body": "For your internship application, kindly upload your transcript and passport copy.",
+    "sender": "alice@company.example",
+    "sender_name": "Alice",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p16",
+    "split": "development",
+    "expected": true,
+    "subject": "面试取消通知",
+    "body": "原定今日的面试取消，请回复确认，新的时间将另行通知。",
+    "sender": "recruitment@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p17",
+    "split": "holdout",
+    "expected": true,
+    "subject": "Next steps",
+    "body": "We would like to proceed with your application. Please provide two professional references.",
+    "sender": "alice@company.example",
+    "sender_name": "Alice",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p18",
+    "split": "development",
+    "expected": true,
+    "subject": "实习安排确认",
+    "body": "请确认您是否能每周出勤三天，以及预计毕业时间。",
+    "sender": "recruitment@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p19",
+    "split": "development",
+    "expected": true,
+    "subject": "Application received",
+    "body": "We have received your application.",
+    "sender": "hr@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p20",
+    "split": "holdout",
+    "expected": true,
+    "subject": "Application update",
+    "body": "We regret to inform you that your application was unsuccessful.",
+    "sender": "hr@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p21",
+    "split": "development",
+    "expected": true,
+    "subject": "Re: Analyst role",
+    "body": "Could you send us your CV and earliest start date for the analyst position?",
+    "sender": "alice@company.example",
+    "sender_name": "Alice",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p22",
+    "split": "development",
+    "expected": true,
+    "subject": "Complete candidate questionnaire",
+    "body": "Please complete the questionnaire for your application by Monday.",
+    "sender": "recruitment@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p23",
+    "split": "holdout",
+    "expected": true,
+    "subject": "招聘资料核对",
+    "body": "请核对您的应聘资料，回复确认手机号码和到岗时间。",
+    "sender": "alice@company.example",
+    "sender_name": "Alice",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p24",
+    "split": "development",
+    "expected": true,
+    "subject": "Quick question",
+    "body": "For the internship, may you please send me your student card, NOL?",
+    "sender": "recruitment@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p25",
+    "split": "development",
+    "expected": true,
+    "subject": "Teams interview",
+    "body": "Please join the Teams meeting for your interview. Kindly confirm receipt.",
+    "sender": "alice@company.example",
+    "sender_name": "Alice",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p26",
+    "split": "holdout",
+    "expected": true,
+    "subject": "Test invitation",
+    "body": "Your application moved forward. Please finish this coding assignment by tomorrow.",
+    "sender": "recruitment@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p27",
+    "split": "development",
+    "expected": true,
+    "subject": "实习面试反馈",
+    "body": "您的实习面试已通过，现需提交学校的实习批准函。",
+    "sender": "alice@company.example",
+    "sender_name": "Alice",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p28",
+    "split": "development",
+    "expected": true,
+    "subject": "Internship follow-up",
+    "body": "Regarding your internship application: do you require sponsorship? Please reply.",
+    "sender": "recruitment@company.example",
+    "sender_name": "Recruitment Team",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "p29",
+    "split": "holdout",
+    "expected": true,
+    "subject": "请签署录用文件",
+    "body": "恭喜您通过招聘考核，请签署录用通知书后回复。",
+    "sender": "alice@company.example",
+    "sender_name": "Alice",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n00",
+    "split": "development",
+    "expected": false,
+    "subject": "职位订阅: 金融财务",
+    "body": "Finance Analyst. 快速申请，正在热招。",
+    "sender": "jobalerts-noreply@linkedin.com",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n01",
+    "split": "development",
+    "expected": false,
+    "subject": "您可能适合Finance Analyst职位 - 积极招聘",
+    "body": "职位订阅: Accountant。立即申请。",
+    "sender": "jobalerts-noreply@linkedin.com",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n02",
+    "split": "holdout",
+    "expected": false,
+    "subject": "CityUHK Announcement Portal (CAP)",
+    "body": "New posting(s) in CityUHK Announcement Portal (CAP) summarized below: Career workshop | Zoom | Hall applications.",
+    "sender": "cap@university.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n03",
+    "split": "development",
+    "expected": false,
+    "subject": "Career Preparation Workshop",
+    "body": "Register now for our career preparation workshop on Zoom.",
+    "sender": "careers@university.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n04",
+    "split": "development",
+    "expected": false,
+    "subject": "新岗位等你来投",
+    "body": "我们正在招聘实习生和分析师，点击申请。",
+    "sender": "talent@company.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n05",
+    "split": "holdout",
+    "expected": false,
+    "subject": "Jobs matching your profile",
+    "body": "Based on your profile, explore these analyst positions and apply now.",
+    "sender": "careers@jobboard.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n06",
+    "split": "development",
+    "expected": false,
+    "subject": "Interview skills webinar",
+    "body": "Join our free interview skills webinar on Zoom. Open to all students.",
+    "sender": "hr@training.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n07",
+    "split": "development",
+    "expected": false,
+    "subject": "校园招聘宣讲会",
+    "body": "欢迎所有同学报名招聘宣讲会，扫码注册。",
+    "sender": "campus@company.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n08",
+    "split": "holdout",
+    "expected": false,
+    "subject": "Quick question for you",
+    "body": "We help companies boost revenue with SaaS automation. Schedule a quick call to see our solution.",
+    "sender": "sales@vendor.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n09",
+    "split": "development",
+    "expected": false,
+    "subject": "Your weekly career digest",
+    "body": "Recommended jobs and interview tips for this week.",
+    "sender": "careers@jobboard.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n10",
+    "split": "development",
+    "expected": false,
+    "subject": "Interview course discount",
+    "body": "Buy our interview course today. Only $99.",
+    "sender": "hr@training.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n11",
+    "split": "holdout",
+    "expected": false,
+    "subject": "周末求职训练营",
+    "body": "面试课程限时优惠，报名即可学习面试技巧。",
+    "sender": "recruit@training.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n12",
+    "split": "development",
+    "expected": false,
+    "subject": "Application to student hall",
+    "body": "Please complete your hall application and confirm your dormitory booking.",
+    "sender": "housing@university.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n13",
+    "split": "development",
+    "expected": false,
+    "subject": "Conference invitation",
+    "body": "You are invited to our academic conference. Please confirm your attendance.",
+    "sender": "events@university.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n14",
+    "split": "holdout",
+    "expected": false,
+    "subject": "Open positions this week",
+    "body": "View all vacancies and send your CV to apply. Unsubscribe from these job recommendations.",
+    "sender": "recruit@jobboard.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n15",
+    "split": "development",
+    "expected": false,
+    "subject": "校园资讯汇总",
+    "body": "校园公告汇总：career workshop、宿舍申请、Zoom研讨会。",
+    "sender": "announcements@university.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n16",
+    "split": "development",
+    "expected": false,
+    "subject": "Register for career fair",
+    "body": "All students are welcome to our career fair. Register now to meet employers.",
+    "sender": "careers@university.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n17",
+    "split": "holdout",
+    "expected": false,
+    "subject": "面试邀请：请先缴费",
+    "body": "面试前请支付保证金。",
+    "sender": "hr@scam.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n18",
+    "split": "development",
+    "expected": false,
+    "subject": "Bank account verification",
+    "body": "Please confirm your bank account details for your savings account.",
+    "sender": "service@bank.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n19",
+    "split": "development",
+    "expected": false,
+    "subject": "Your order has shipped",
+    "body": "Your purchase is on its way.",
+    "sender": "sales@store.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n20",
+    "split": "holdout",
+    "expected": false,
+    "subject": "New internship opportunities",
+    "body": "Discover new internship opportunities. Apply now to any role. This is a job alert.",
+    "sender": "talent@jobboard.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n21",
+    "split": "development",
+    "expected": false,
+    "subject": "Free career coaching",
+    "body": "Please schedule a call to learn about our paid career coaching service.",
+    "sender": "recruiter@training.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n22",
+    "split": "development",
+    "expected": false,
+    "subject": "Calendar reminder",
+    "body": "Join your yoga class Zoom meeting.",
+    "sender": "reminders@calendar.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n23",
+    "split": "holdout",
+    "expected": false,
+    "subject": "School exam schedule",
+    "body": "Dear students, your final examinations begin next month. Please check the timetable.",
+    "sender": "exams@university.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n24",
+    "split": "development",
+    "expected": false,
+    "subject": "CV review service",
+    "body": "Our recruiters can improve your CV for a fee. Book your consultation today.",
+    "sender": "recruit@training.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n25",
+    "split": "development",
+    "expected": false,
+    "subject": "Graduate programme now open",
+    "body": "Applications are open to all graduates. Visit our careers website to apply.",
+    "sender": "campus@company.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n26",
+    "split": "holdout",
+    "expected": false,
+    "subject": "Sales offer ends tomorrow",
+    "body": "Our software offer expires tomorrow. Please schedule a call.",
+    "sender": "sales@vendor.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n27",
+    "split": "development",
+    "expected": false,
+    "subject": "申请材料写作公开课",
+    "body": "求职申请材料写作公开课，面向所有学生，立即报名。",
+    "sender": "careers@university.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n28",
+    "split": "development",
+    "expected": false,
+    "subject": "Job alert: Analyst",
+    "body": "New positions for you. Apply now.",
+    "sender": "notifications@jobboard.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  },
+  {
+    "id": "n29",
+    "split": "holdout",
+    "expected": false,
+    "subject": "Invite to recruiting webinar",
+    "body": "We invite all students to a recruiting webinar. Register now.",
+    "sender": "talent@company.example",
+    "sender_name": "Updates",
+    "received": "2026-11-05T08:00:00Z"
+  }
+]

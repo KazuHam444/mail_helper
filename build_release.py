@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parent
 RELEASE_FILES = (
     'README.md', '.env.example', '.gitignore', 'requirements.txt',
     'requirements-lock.txt', 'hr_digest.py', 'setup.ps1', 'install_task.ps1',
-    'build_release.py',
+    'build_release.py', 'evaluate.py', 'tests/hr_eval_cases.json',
 )
 
 

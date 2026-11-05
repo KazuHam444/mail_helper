@@ -108,6 +108,17 @@ class RulesTests(unittest.TestCase):
         for sender in ("jobalerts-noreply@linkedin.com", "noreply@careers.example", "myjob@company.example"):
             self.assertFalse(app.looks_like_hr(dict(sender=sender, sender_name="Updates")))
 
+    def test_synthetic_dataset(self):
+        cases = json.loads((app.ROOT / 'tests/hr_eval_cases.json').read_text(encoding='utf-8'))
+        for case in cases:
+            with self.subTest(case=case['id']):
+                self.assertEqual(app.rules(case)[0]['notify'], case['expected'])
+
+    def test_personal_assessment_workshop_is_not_public_training(self):
+        m = mail('Assessment workshop invitation', 'Your application has progressed. You are invited to an assessment workshop. Please confirm your attendance.')
+        m.update(sender='alice@company.example', sender_name='Alice')
+        self.assertTrue(app.rules(m)[0]['notify'])
+
     def test_domain_matching_not_substring(self):
         self.assertTrue(app.sender_matches("hr@company.com", ["company.com"]))
         self.assertFalse(app.sender_matches("hr@evilcompany.com", ["company.com"]))
@@ -121,6 +132,19 @@ class RulesTests(unittest.TestCase):
             decision, final = app.classify(mail())
             self.assertTrue(decision["notify"])
             self.assertFalse(final)
+
+    def test_ai_cannot_drop_explicit_personal_application_receipt(self):
+        m = mail('Application received', 'We have received your application.')
+        with patch.dict(os.environ, {"AI_API_KEY": "fake", "AI_MODEL": "fake"}), patch.object(app, 'ai_classify', return_value=app.result(False, source='ai')):
+            decision, final = app.classify(m)
+            self.assertTrue(decision['notify'])
+            self.assertTrue(final)
+
+    def test_ai_cannot_drop_direct_cv_and_start_date_request(self):
+        m = mail('Re: Analyst role', 'Could you send us your CV and earliest start date for the analyst position?')
+        m.update(sender='alice@company.example', sender_name='Alice')
+        with patch.dict(os.environ, {"AI_API_KEY": "fake", "AI_MODEL": "fake"}), patch.object(app, 'ai_classify', return_value=app.result(False, source='ai')):
+            self.assertTrue(app.classify(m)[0]['notify'])
 
     def test_non_qq_url_not_forwarded(self):
         m = mail()

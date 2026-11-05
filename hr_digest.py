@@ -405,7 +405,8 @@ ACTION = re.compile(
     r"submit\s+your\s+(video|recording|application|form|assessment|response|documents?)|"
     r"please\s+(submit|complete|confirm|reply|respond|provide|upload|join|attend|send)|"
     r"send.{0,40}(student\s*card|documents?|\bNOL\b)|defer.{0,25}graduation|"
-    r"kindly\s+(request|submit|ask|complete|confirm|provide)|"
+    r"kindly\s+(request|submit|ask|complete|confirm|provide|upload|send)|"
+    r"(?:could|would|can|may)\s+you.{0,18}(send|share|provide|confirm|upload|reply)|"
     r"we\s+(request|ask|invite)\s+you|you\s+are\s+(invited|required|asked)|"
     r"next\s+stage|next\s+step|further\s+process|screening(\s+process)?|"
     r"shortlist|selected\s+for|proceed\s+with\s+your\s+application|"
@@ -486,6 +487,28 @@ def broadcast_reason(mail):
     local = sender.partition("@")[0]
     subject = mail.get("subject") or ""
     body = mail.get("body") or ""
+    personal_process = re.search(
+        r"your\s+(?:(?:internship|job|graduate)\s+)?application\s+(?:has|was|is|moved|progress)|"
+        r"(?:regarding|for)\s+your\s+(?:internship\s+)?application|"
+        r"you\s+(?:have\s+been|were)\s+shortlisted|您应聘|您申請|您的简历已通过", body, re.I)
+    # 按邮件用途排除，不靠 campus/recruit/HR 发件人名称推断重要性。
+    if re.search(r"\b(?:webinar|workshop|seminar|career\s+fair|career\s+coaching|"
+                 r"cv\s+review\s+service|interview\s+skills)\b|"
+                 r"公开课|公開課|宣讲会|宣講會|求职训练营|求職訓練營", subject, re.I) and not personal_process:
+        return "公开活动、培训或求职服务，不是个人招聘流程通知。"
+    if re.search(r"\b(?:hall|dormitory|housing)\s+(?:application|booking)|"
+                 r"application\s+to\s+(?:student\s+)?hall|宿舍申请|宿舍申請", subject, re.I):
+        return "住宿申请事务，不是求职申请。"
+    if not personal_process and re.search(
+            r"jobs?\s+matching\s+your\s+profile|new\s+(?:internship|job|career)\s+opportunities|"
+            r"open\s+positions|programme\s+now\s+open|新岗位|新崗位", subject, re.I):
+        return "面向公众的岗位推广或开放申请通知。"
+    if not personal_process and re.search(
+            r"applications?\s+(?:are\s+)?open\s+to\s+all|"
+            r"(?:unsubscribe|取消订阅|取消訂閱).{0,100}(?:job|职位|職位)|"
+            r"我们正在招聘.{0,60}(?:点击申请|欢迎投递)|"
+            r"discover\s+new\s+internship\s+opportunities", body[:3000], re.I | re.S):
+        return "面向公众的招聘推广，不是已投递后的通知。"
     if re.match(r"^job[-_]?alerts?(?:[-_.]|$)", local):
         return "职位订阅通知，不是针对个人申请的 HR 来信。"
     if AD.search(subject):
@@ -600,6 +623,7 @@ def ai_classify(mail):
 只提醒针对收件人个人求职申请的招聘流程邮件，包括面试、笔试、学生证/NOL等补材料、毕业时间确认、填表、录用、进度、回执和拒信。
 职位订阅/岗位推荐/适合你的职位列表、校园公告汇总、学校门户摘要、公开就业讲座和培训营销均 notify=false。即使出现 career/application/Zoom/面试等词，或发件人名称包含 HR/careers/job/campus，也不能据此认定是 HR 来信。称呼收件人姓名不代表它不是群发。
 需要结合整封邮件是否在推进收件人的具体招聘流程判断；不得把公开岗位的申请入口当成已投递后的通知。
+招聘方直接询问个人CV、成绩单、学生证、NOL、毕业时间或最早到岗日期也必须提醒，即使邮件未说已投递。比如“Could you send us your CV and earliest start date for the analyst position?”是招聘接洽，不是职位广告。
 只输出JSON对象，字段 notify(boolean), confidence(0到1数字), category(面试/笔试/填表/补材料/录用入职/HR来信/其他/ignore), summary(中文80字以内), deadline(原文截止时间，没有则空字符串)。不要推测时间，不要访问链接。"""
     payload = {"model": model, "temperature": 0, "max_tokens": 500,
               "response_format": {"type": "json_object"},
@@ -636,7 +660,23 @@ def classify(mail):
     fallback, candidate = rules(mail)
     if candidate and ai_enabled():
         try:
-            return ai_classify(mail), True
+            decision = ai_classify(mail)
+            # 已排除群发后，明确“已收到你的申请”的 HR 回执按既有策略保留。
+            # AI 可润色摘要，但不能把这种申请记录误当普通职位订阅。
+            if (not decision["notify"] and fallback["notify"] and looks_like_hr(mail)
+                    and RECEIPT.search(mail["subject"])
+                    and re.search(r"(?:received|thank\s+you\s+for).{0,30}(?:your\s+application|applying)|"
+                                  r"收到.{0,10}(?:您的|你的).{0,8}(?:申请|简历)", mail["body"], re.I)):
+                decision = fallback
+                decision["source"] = "rules-confirmed-receipt"
+            if (not decision["notify"] and fallback["notify"] and re.search(
+                    r"(?:could\s+you|would\s+you|may\s+you|please|kindly).{0,60}"
+                    r"(?:send|provide|upload|share).{0,40}(?:\bCV\b|resume|transcript|student\s*card|\bNOL\b)|"
+                    r"请.{0,12}(?:提供|提交|补充).{0,20}(?:简历|成绩单|在读证明|学生证|到岗时间)",
+                    mail["body"][:2000], re.I)):
+                decision = fallback
+                decision["source"] = "rules-confirmed-action"
+            return decision, True
         except Exception as exc:
             # 不输出 API 响应、邮件、密钥或带 token 的 URL。
             LOG.warning("AI 分类不可用 (%s)，使用规则，并保留邮件供下次重试。", type(exc).__name__)
@@ -797,7 +837,7 @@ def notify_entries(state, start_local, end_local):
 
 def migrate_broadcast_filter(state):
     """升级时更正历史明确误报，取消其未发送队列；保留真实 HR 和已发送审计记录。"""
-    version = "2026-11-05-1"
+    version = "2026-11-05-2"
     if state.get("broadcast_filter_version") == version:
         return
     corrected = 0
