@@ -72,6 +72,42 @@ class RulesTests(unittest.TestCase):
         self.assertTrue(candidate)
         self.assertTrue(decision["notify"])
 
+    def test_linkedin_recommendations_and_university_digest_never_call_ai(self):
+        samples = [
+            ("金融财务职位", "职位订阅: 金融财务\nFinance Analyst (12 months contract)\n快速申请", "jobalerts-noreply@linkedin.com", "领英职位订阅"),
+            ("[Ext] 您可能适合BinanceFinance Analyst (12 months contract)职位 - 积极招聘", "职位订阅: Accountant\n正在热招\n快速申请", "jobalerts-noreply@linkedin.com", "领英职位订阅"),
+            ("CityUHK Announcement Portal (CAP)", "Dear SHEN Zijun,\nNew posting(s) in CityUHK Announcement Portal (CAP) summarized below:\nCareer Preparation Workshop | Zoom\nRolling Application for Hall. You are invited to join.\nEmail me a copy", "cap@example.edu", "University Portal"),
+        ]
+        for subject, body, sender, name in samples:
+            with self.subTest(subject=subject), patch.dict(os.environ, {"AI_API_KEY": "fake", "AI_MODEL": "fake"}), patch.object(app, "ai_classify") as ai:
+                m = mail(subject, body)
+                m.update(sender=sender, sender_name=name)
+                decision, final = app.classify(m)
+                self.assertFalse(decision["notify"])
+                self.assertTrue(final)
+                ai.assert_not_called()
+
+    def test_broadcast_exclusion_precedes_hr_and_allowlist(self):
+        with patch.dict(os.environ, {"ALLOW_SENDERS": "linkedin.com,company.example"}):
+            for sender in ("hr@company.example", "jobalerts-noreply@linkedin.com"):
+                m = mail("职位订阅: 面试岗位推荐", "请申请这些职位。")
+                m["sender"] = sender
+                self.assertFalse(app.rules(m)[0]["notify"])
+
+    def test_forwarded_broadcast_still_excluded(self):
+        m = mail("FW: Updates", "From: 领英职位订阅 <jobalerts-noreply@linkedin.com>\n职位订阅: Accountant\n快速申请")
+        self.assertFalse(app.rules(m)[0]["notify"])
+
+    def test_linkedin_and_university_personal_interviews_not_domain_blocked(self):
+        for sender in ("messages-noreply@linkedin.com", "alice@university.example", "hkcareers@company.example"):
+            m = mail("Interview confirmation", "Your application was shortlisted. Please confirm your interview time.")
+            m.update(sender=sender, sender_name="Alice")
+            self.assertTrue(app.rules(m)[0]["notify"])
+
+    def test_jobalerts_or_hr_in_domain_does_not_make_hr_sender(self):
+        for sender in ("jobalerts-noreply@linkedin.com", "noreply@careers.example", "myjob@company.example"):
+            self.assertFalse(app.looks_like_hr(dict(sender=sender, sender_name="Updates")))
+
     def test_domain_matching_not_substring(self):
         self.assertTrue(app.sender_matches("hr@company.com", ["company.com"]))
         self.assertFalse(app.sender_matches("hr@evilcompany.com", ["company.com"]))
@@ -105,6 +141,20 @@ class StateTests(unittest.TestCase):
         self.state.save(mail(), app.result(False), True)
         self.assertTrue(self.state.seen("m1"))
         self.assertEqual(self.state.db.execute("SELECT count(*) FROM messages").fetchone()[0], 1)
+
+    def test_upgrade_cancels_pending_broadcast_but_keeps_real_hr(self):
+        advert = mail("职位订阅", "职位订阅: Accountant", "advert")
+        self.state.save(advert, app.result(True))
+        self.state.save(mail(mid="real"), app.result(True))
+        self.state.enqueue("mail:advert:0", "old", "advert", ["desktop"])
+        self.state.enqueue("mail:real:0", "real", "interview", ["desktop"])
+        self.state.enqueue("digest:2026-11-03:0", "old digest", "stale", ["desktop"])
+        app.migrate_broadcast_filter(self.state)
+        app.migrate_broadcast_filter(self.state)
+        keys = [row[0] for row in self.state.db.execute("SELECT key FROM outbox")]
+        self.assertEqual(keys, ["mail:real:0:desktop"])
+        decision = self.state.db.execute("SELECT decision FROM messages WHERE id='advert'").fetchone()[0]
+        self.assertFalse(json.loads(decision)["notify"])
 
     def test_outbox_retry_per_channel_and_deduplication(self):
         self.state.enqueue("m1", "test", "body", ["desktop", "telegram"])
